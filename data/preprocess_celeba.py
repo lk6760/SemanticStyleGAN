@@ -8,16 +8,18 @@ from multiprocessing import Pool
 
 dataset_path = sys.argv[1]
 img_dataset_path = os.path.join(dataset_path, 'CelebA-HQ-img/')
-seg_dataset_path = os.path.join(dataset_path, 'CelebAMask-HQ-mask-anno/')
+seg_dataset_path = os.path.join(dataset_path, 'CelebAMask-HQ-mask-anno-expanded/')
 img_trainset_path = os.path.join(dataset_path, 'image_train')
-seg_trainset_path = os.path.join(dataset_path, 'label_train')
+seg_trainset_path = os.path.join(dataset_path, 'label_train_es')
 img_valset_path = os.path.join(dataset_path, 'image_val')
-seg_valset_path = os.path.join(dataset_path, 'label_val')
+seg_valset_path = os.path.join(dataset_path, 'label_val_es')
 colored_label = False
 
 mapping = {
     'skin':   1,
     'eye_g':  10,
+    'eye_lens': 13,
+    'eye_sunlens': 14,
     'l_eye':  2,
     'r_eye':  2,
     'l_brow': 3,
@@ -65,9 +67,9 @@ def process_img(i):
         seg_output_path = seg_valset_path
 
     # Copy the image file
-    input_path = os.path.join(img_dataset_path, f'{i}.jpg')
-    output_path = os.path.join(img_output_path, f'{i}.jpg')
-    shutil.copyfile(input_path, output_path)
+    #input_path = os.path.join(img_dataset_path, f'{i}.jpg')
+    #output_path = os.path.join(img_output_path, f'{i}.jpg')
+    #shutil.copyfile(input_path, output_path)
 
     # Make a new label file
     subfolder = str(i // 2000)
@@ -91,9 +93,9 @@ if __name__ == "__main__":
 
     assert os.path.isdir(img_dataset_path)
     assert os.path.isdir(seg_dataset_path)
-    os.mkdir(img_trainset_path)
+    #os.mkdir(img_trainset_path)
     os.mkdir(seg_trainset_path)
-    os.mkdir(img_valset_path)
+    #os.mkdir(img_valset_path)
     os.mkdir(seg_valset_path)
 
     pool = Pool(16)

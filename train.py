@@ -471,7 +471,7 @@ if __name__ == '__main__':
     if args.ckpt is not None:
         print('load model:', args.ckpt)
         
-        ckpt = torch.load(args.ckpt, map_location='cpu')
+        ckpt = torch.load(os.path.join(args.checkpoint_dir, "ckpt", args.ckpt), map_location='cpu')
 
         ckpt_name = os.path.basename(args.ckpt)
         args.start_iter = int(os.path.splitext(ckpt_name)[0])

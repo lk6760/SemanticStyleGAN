@@ -132,6 +132,8 @@ dmypy.json
 pretrained/
 
 # Other
+checkpoint/
+results/
 checkpoint/*
 results/*
 data/*
