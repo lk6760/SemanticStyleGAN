@@ -130,3 +130,9 @@ dmypy.json
 .pt
 .DS_Store
 pretrained/
+
+# Other
+checkpoint/*
+results/*
+data/*
+!data/*.py
