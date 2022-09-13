@@ -134,6 +134,7 @@ pretrained/
 # Other
 checkpoint/
 results/
+results_im/
 checkpoint/*
 results/*
 data/*

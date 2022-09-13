@@ -10,16 +10,16 @@ dataset_path = sys.argv[1]
 img_dataset_path = os.path.join(dataset_path, 'CelebA-HQ-img/')
 seg_dataset_path = os.path.join(dataset_path, 'CelebAMask-HQ-mask-anno-expanded/')
 img_trainset_path = os.path.join(dataset_path, 'image_train')
-seg_trainset_path = os.path.join(dataset_path, 'label_train_es')
+seg_trainset_path = os.path.join(dataset_path, 'label_train_color_e')
 img_valset_path = os.path.join(dataset_path, 'image_val')
-seg_valset_path = os.path.join(dataset_path, 'label_val_es')
-colored_label = False
+seg_valset_path = os.path.join(dataset_path, 'label_val_color_e')
+colored_label = True
 
 mapping = {
     'skin':   1,
     'eye_g':  10,
     'eye_lens': 13,
-    'eye_sunlens': 14,
+    'eye_sunlens': 13,
     'l_eye':  2,
     'r_eye':  2,
     'l_brow': 3,

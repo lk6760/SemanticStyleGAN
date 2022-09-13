@@ -16,6 +16,7 @@
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 import os
+from sqlite3 import enable_shared_cache
 import sys
 import argparse
 import shutil
@@ -122,11 +123,24 @@ if __name__ == '__main__':
     with torch.no_grad():
         assert args.latent_style != None
         style_mix = torch.tensor(np.load(args.latent_style), device=args.device)
+        style_new = torch.zeros_like(style)
 
+        #************************************************
+        style_new = torch.clone(style) # mix all styles *
+        #************************************************
+        
         for latent_index, latent_name in latent_dict.items():
             if 'glasses_frames' in latent_name or 'glasses_lens' in latent_name:
                 try:
-                    style_new = style
+
+                    if torch.equal(style, style_new):
+                        print("SOMETHING WENT WRONG WITH STYLE VECTOR!", latent_name)
+                    else:
+                        print("CORRECT STYLE VECTOR!", latent_name)
+                    #**************************************************
+                    #style_new = torch.clone(style)  #mix single style *
+                    #**************************************************
+
                     style_new[:,latent_index] = style_mix[:,latent_index]
                     image, seg = g_ema([style_new], input_is_latent=True, randomize_noise=False, noise=noises)
                     #images, segs = generate(model, style_new, mean_latent=mean_latent, 

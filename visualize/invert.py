@@ -80,22 +80,30 @@ def optimize_latent(args, g_ema, target_img_tensor, target_seg_tensor=None,
     else:
         optimizer = optim.Adam([latent_in] + noises, lr=args.lr)
 
-    seg_loss = 0
-    mask_loss = 0
+
     mask = 0
     # glasses, eyes, eyebrows mask + dilation
     
     if target_seg_tensor != None:
         target = target_seg_tensor.squeeze().cpu().detach()
+        target_im = torch.permute(target_img_tensor.squeeze().cpu().detach(),(1, 2, 0))
+        #print(target_im.shape)
+        #print(target.shape)
         mask = np.zeros_like(target, dtype=np.uint8)
-        w = np.full(14, 1)
+        w = np.full(13, 1) #13 no frames, 14 with frames, 15 with 2 types of lenses
         
-        for i in [2,3,10,13]:
+        for i in [2,10]: #2,10,13
             mask[target==i] = 255
-        for i in [2,3,10,13]:    
-            w[i] = 2
+        for i in [2,3,5,10]: #2,3,5,10,13
+            w[i] = 5
+        w[10] = 10
+        #w[13] = 15
         mask = np.asarray(cv.dilate(mask, kernel=np.ones((5, 5), np.uint8), iterations=10), dtype=bool)
-        #imwrite(os.path.join(args.outdir, f'{image_basename}_mask.png'), mask*target.numpy())
+        imwrite(os.path.join(args.outdir, f'{image_basename}_seg_mask.png'), mask*target.numpy())
+        l = np.dstack([mask,mask,mask])*target_im.numpy()
+        #print(l.min(), l.max(), l.dtype, l[30,30])
+        imwrite(os.path.join(args.outdir, f'{image_basename}_im_mask.png'), l)
+
         mask = torch.from_numpy(mask).unsqueeze(0).to(device)
 
         #print("target:", target_seg_tensor.size(), target_seg_tensor.max(), target_seg_tensor.min())
@@ -110,6 +118,9 @@ def optimize_latent(args, g_ema, target_img_tensor, target_seg_tensor=None,
     latent_path = [latent_in.detach().clone()]
     pbar = tqdm(range(args.step))
     for i in pbar:
+        seg_loss = 0
+        seg_mask_loss = 0
+        mask_loss = 0
         optimizer.param_groups[0]['lr'] = get_lr(float(i)/args.step, args.lr)
         
         img_gen, seg_gen = g_ema([latent_in], input_is_latent=True, randomize_noise=False, noise=noises)
@@ -118,11 +129,6 @@ def optimize_latent(args, g_ema, target_img_tensor, target_seg_tensor=None,
         #a = tensor2image(img_gen.detach().cpu()*((1-target)*-1)).squeeze()
         #print(a.min(), a.max())
         #imwrite(os.path.join(args.outdir, f'{image_basename}_masked_im.png'), a)
-
-        if target_seg_tensor != None:
-            seg_loss = F.cross_entropy(seg_gen, target_seg_tensor, weight=seg_weights)
-            mask_loss = F.mse_loss(img_gen*mask, target_img_tensor*mask)
-
 
         p_loss = calc_lpips_loss(img_gen, target_img_tensor)
         mse_loss = F.mse_loss(img_gen, target_img_tensor)
@@ -134,15 +140,29 @@ def optimize_latent(args, g_ema, target_img_tensor, target_seg_tensor=None,
         else:
             latent_mean_loss = F.mse_loss(latent_in, latent_mean.repeat(latent_in.size(0), 1))
 
-        # main loss function
-        loss = (n_loss * args.noise_regularize + 
-                p_loss * args.lambda_lpips + 
-                mse_loss * args.lambda_mse + 
-                latent_mean_loss * args.lambda_mean + 
-                seg_loss * args.lambda_seg + 
-                mask_loss * args.lambda_mask)
+        if target_seg_tensor != None and i<len(pbar)/2:
+            seg_loss = F.cross_entropy(seg_gen, target_seg_tensor, weight=seg_weights)
+            seg_mask_loss = F.cross_entropy(seg_gen*mask, target_seg_tensor*mask, weight=seg_weights)
+            mask_loss = F.mse_loss(img_gen*mask, target_img_tensor*mask)
+        if target_seg_tensor != None and i<len(pbar)/2:
+            # main loss function
+            loss = (n_loss * args.noise_regularize + 
+                    p_loss * args.lambda_lpips + 
+                    mse_loss * args.lambda_mse + 
+                    latent_mean_loss * args.lambda_mean + 
+                    seg_loss * args.lambda_seg + 
+                    seg_mask_loss * args.lambda_segmask +
+                    mask_loss * args.lambda_mask)
+        else:
+            loss = (n_loss * args.noise_regularize + 
+                    p_loss * args.lambda_lpips + 
+                    mse_loss * args.lambda_mse + 
+                    latent_mean_loss * args.lambda_mean + 
+                    seg_loss * args.lambda_seg/5 + 
+                    seg_mask_loss * args.lambda_segmask/5 +
+                    mask_loss * args.lambda_mask)
 
-        if args.segdir and target_seg_tensor != None:
+        if args.segdir and target_seg_tensor != None and i<len(pbar)/2:
             pbar.set_description(f'perc: {p_loss.item():.4f} noise: {n_loss.item():.4f} mse: {mse_loss.item():.4f} latent: {latent_mean_loss.item():.4f} seg: {seg_loss.item():.4f} mask: {mask_loss.item():.4f}')
         else:
             pbar.set_description(f'perc: {p_loss.item():.4f} noise: {n_loss.item():.4f} mse: {mse_loss.item():.4f} latent: {latent_mean_loss.item():.4f}')
@@ -213,8 +233,10 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_mse', type=float, default=0.1)
     parser.add_argument('--lambda_lpips', type=float, default=1.0)
     parser.add_argument('--lambda_mean', type=float, default=1.0)
-    parser.add_argument('--lambda_seg', type=float, default=1.0)
+    #added losses
     parser.add_argument('--lambda_mask', type=float, default=1.0)
+    parser.add_argument('--lambda_seg', type=float, default=1.0) #7
+    parser.add_argument('--lambda_segmask', type=float, default=1.0) #12
 
     args = parser.parse_args()
     print(args)
